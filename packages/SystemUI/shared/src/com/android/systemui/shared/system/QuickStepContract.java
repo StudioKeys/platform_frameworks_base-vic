@@ -46,6 +46,9 @@ import java.util.StringJoiner;
  * Various shared constants between Launcher and SysUI as part of quickstep
  */
 public class QuickStepContract {
+    // Fully qualified name of the Launcher activity.
+    public static final String LAUNCHER_ACTIVITY_CLASS_NAME =
+            "com.android.launcher3.Launcher";
 
     private static final String TAG = "QuickStepContract";
 
