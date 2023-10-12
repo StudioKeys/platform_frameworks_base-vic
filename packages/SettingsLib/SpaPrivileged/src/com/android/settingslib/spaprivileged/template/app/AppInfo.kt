@@ -149,6 +149,13 @@ class AppInfoProvider(private val packageInfo: PackageInfo) {
         return remember { DevelopmentSettingsEnabler.isDevelopmentSettingsEnabled(context) }
     }
 
+    @Composable
+    fun FooterAppPackageName() {
+        Box(modifier = Modifier.padding(SettingsDimension.itemPadding)) {
+            SettingsBody(packageInfo.packageName)
+        }
+    }
+
     private companion object {
         /** Wrapped the version name, so its directionality still keep same when RTL. */
         val PackageInfo.versionNameBidiWrapped: String?
