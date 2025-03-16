@@ -153,9 +153,9 @@ public class NavigationBarInflaterView extends FrameLayout {
                             NAV_BAR_INVERSE, 0) != 0;
                     updateLayoutInversion();
                 } else if (Settings.System.getUriFor(
-                        Settings.System.NAVIGATION_BAR_HINT).equals(uri)) {
-                    mIsHintEnabled = Settings.System.getInt(mContext.getContentResolver(),
-                            Settings.System.NAVIGATION_BAR_HINT, 0) != 0;
+                        Settings.Secure.NAVIGATION_BAR_HINT).equals(uri)) {
+                    mIsHintEnabled = Settings.Secure.getInt(mContext.getContentResolver(),
+                            Settings.Secure.NAVIGATION_BAR_HINT, 0) != 0;
                     updateHint();
                     mContext.getMainExecutor().execute(() -> {
                         onLikelyDefaultLayoutChange();
@@ -215,7 +215,7 @@ public class NavigationBarInflaterView extends FrameLayout {
         super.onAttachedToWindow();
         Uri navBarInverse = Settings.Secure.getUriFor(NAV_BAR_INVERSE);
         Uri navigationBarHint = Settings.System.getUriFor(
-                Settings.System.NAVIGATION_BAR_HINT);
+                Settings.Secure.NAVIGATION_BAR_HINT);
         mContext.getContentResolver().registerContentObserver(navBarInverse, false,
                 mContentObserver);
         mContext.getContentResolver().registerContentObserver(navigationBarHint, false,
