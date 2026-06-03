@@ -197,7 +197,6 @@ public class UsbDeviceManager implements ActivityTaskManagerInternal.ScreenObser
     private static final int MSG_UPDATE_USB_SPEED = 22;
     private static final int MSG_UPDATE_HAL_VERSION = 23;
     private static final int MSG_USER_UNLOCKED_AFTER_BOOT = 24;
-    private static final int MSG_EVAL_UDC_SWITCH = 25;
 
     // Delay for debouncing USB disconnects.
     // We often get rapid connect/disconnect events when enabling USB functions,
@@ -253,8 +252,6 @@ public class UsbDeviceManager implements ActivityTaskManagerInternal.ScreenObser
             "DEVPATH=/devices/platform/soc/a600000.ssusb/a600000.dwc3";
     private static final String UDC2_NAME_MATCH =
             "DEVPATH=/devices/platform/soc/a800000.ssusb/a800000.dwc3";
-    // Wait for the UDC_NAME uevent burst to settle before reading port modes; mode is unreliable mid-switch.
-    private static final long UDC_SWITCH_SETTLE_MS = 1500;
 
     private static UsbGadgetHal mUsbGadgetHal;
 
@@ -318,11 +315,13 @@ public class UsbDeviceManager implements ActivityTaskManagerInternal.ScreenObser
             if (mUseMultiUsbController) {
                 String udcname = event.get("UDC_NAME");
                 if (udcname != null) {
-                    // Coalesce the UDC_NAME burst (cable change + its unbind echoes) and
-                    // re-evaluate once settled, so the read of the port modes is reliable.
-                    mHandler.removeMessages(MSG_EVAL_UDC_SWITCH);
-                    mHandler.sendEmptyMessageDelayed(MSG_EVAL_UDC_SWITCH, UDC_SWITCH_SETTLE_MS);
-                    Slog.i(TAG, "UDC_NAME=" + udcname + " scheduled controller re-eval");
+                    String controller = SystemProperties.get(USB_CONTROLLER_PROPERTY);
+                    if (!controller.equals(udcname)) {
+                        udc_change = udcname;
+                        setCurrentFunctions(FUNCTION_UDC_SWITCH,
+                                sUsbOperationCount.incrementAndGet());
+                    }
+                    Slog.i(TAG, "Controller=" + controller + " UDC_NAME=" + udcname);
                 }
             }
 
@@ -1442,37 +1441,6 @@ public class UsbDeviceManager implements ActivityTaskManagerInternal.ScreenObser
                 case MSG_ENABLE_ADB:
                     setAdbEnabled(msg.arg1 == 1, msg.arg2);
                     break;
-                case MSG_EVAL_UDC_SWITCH: {
-                    if (!mUseMultiUsbController) {
-                        break;
-                    }
-                    // Pick the controller whose port has the cable, reading settled modes.
-                    String controller = SystemProperties.get(USB_CONTROLLER_PROPERTY);
-                    String target = null;
-                    try {
-                        boolean p1 = "peripheral".equals(
-                                FileUtils.readTextFile(new File(UDC1_MODE), 0, null).trim());
-                        boolean p2 = "peripheral".equals(
-                                FileUtils.readTextFile(new File(UDC2_MODE), 0, null).trim());
-                        if (p1 && !p2) {
-                            target = "a600000.dwc3";
-                        } else if (p2 && !p1) {
-                            target = "a800000.dwc3";
-                        }
-                        Slog.i(TAG, "evalUdc p1=" + p1 + " p2=" + p2
-                                + " controller=" + controller + " target=" + target);
-                    } catch (IOException e) {
-                        Slog.e(TAG, "Error read usb mode", e);
-                        break;
-                    }
-                    if (target != null && !target.equals(controller)) {
-                        SystemProperties.set(USB_CONTROLLER_PROPERTY, target);
-                        long fns = (!mScreenLocked && mScreenUnlockedFunctions != 0)
-                                ? mScreenUnlockedFunctions : UsbManager.FUNCTION_NONE;
-                        setEnabledFunctions(fns, true, sUsbOperationCount.incrementAndGet());
-                    }
-                    break;
-                }
                 case MSG_SET_CURRENT_FUNCTIONS:
                     long functions = (Long) msg.obj;
                     operationId = (int) msg.arg1;
